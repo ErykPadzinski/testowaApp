@@ -1,6 +1,7 @@
 import React, {useState, useEffect} from 'react';
-import {View, Text, TextInput, Button, StyleSheet} from 'react-native';
+import {View, Text, TextInput, Button, StyleSheet, Switch} from 'react-native';
 import {Picker} from '@react-native-picker/picker';
+import {useTheme} from './ThemeContext';
 
 interface ExchangeRates {
   [key: string]: number;
@@ -12,6 +13,8 @@ const CurrencyConverter = () => {
   const [toCurrency, setToCurrency] = useState('EUR');
   const [result, setResult] = useState('');
   const [exchangeRates, setExchangeRates] = useState<ExchangeRates>({});
+
+  const {theme, toggleTheme} = useTheme();
 
   useEffect(() => {
     fetchExchangeRates();
@@ -50,13 +53,21 @@ const CurrencyConverter = () => {
     }
   };
 
+  const styles = getStyles(theme);
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Konwerter walut</Text>
+      <Switch
+        value={theme === 'dark'}
+        onValueChange={toggleTheme}
+        style={styles.switch}
+      />
       <TextInput
         style={styles.input}
         keyboardType="numeric"
         placeholder="Wpisz kwotę"
+        placeholderTextColor={theme === 'dark' ? '#888' : '#444'}
         value={amount}
         onChangeText={setAmount}
       />
@@ -66,7 +77,12 @@ const CurrencyConverter = () => {
           selectedValue={fromCurrency}
           onValueChange={itemValue => setFromCurrency(itemValue)}>
           {Object.keys(exchangeRates).map(currency => (
-            <Picker.Item key={currency} label={currency} value={currency} />
+            <Picker.Item
+              key={currency}
+              label={currency}
+              value={currency}
+              color={theme === 'dark' ? '#fff' : '#000'}
+            />
           ))}
         </Picker>
         <Picker
@@ -74,7 +90,12 @@ const CurrencyConverter = () => {
           selectedValue={toCurrency}
           onValueChange={itemValue => setToCurrency(itemValue)}>
           {Object.keys(exchangeRates).map(currency => (
-            <Picker.Item key={currency} label={currency} value={currency} />
+            <Picker.Item
+              key={currency}
+              label={currency}
+              value={currency}
+              color={theme === 'dark' ? '#fff' : '#000'}
+            />
           ))}
         </Picker>
       </View>
@@ -84,37 +105,47 @@ const CurrencyConverter = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 10,
-    marginBottom: 10,
-  },
-  pickerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  picker: {
-    flex: 1,
-  },
-  result: {
-    marginTop: 20,
-    fontSize: 18,
-    textAlign: 'center',
-  },
-});
+const getStyles = (theme: 'light' | 'dark') =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      padding: 20,
+      justifyContent: 'center',
+      backgroundColor: theme === 'dark' ? '#222' : '#fff',
+    },
+    title: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      marginBottom: 20,
+      textAlign: 'center',
+      color: theme === 'dark' ? '#fff' : '#000',
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: theme === 'dark' ? '#444' : '#ccc',
+      padding: 10,
+      marginBottom: 10,
+      color: theme === 'dark' ? '#fff' : '#000',
+    },
+    pickerContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 10,
+    },
+    picker: {
+      flex: 1,
+      color: theme === 'dark' ? '#fff' : '#000',
+    },
+    result: {
+      marginTop: 20,
+      fontSize: 18,
+      textAlign: 'center',
+      color: theme === 'dark' ? '#fff' : '#000',
+    },
+    switch: {
+      alignSelf: 'flex-end',
+      marginBottom: 10,
+    },
+  });
 
 export default CurrencyConverter;
