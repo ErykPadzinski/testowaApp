@@ -26,6 +26,9 @@ const CurrencyConverter = () => {
   const [exchangeRate, setExchangeRate] = useState('');
   const [showFromCurrencyList, setShowFromCurrencyList] = useState(false);
   const [showToCurrencyList, setShowToCurrencyList] = useState(false);
+  const [currencyNames, setCurrencyNames] = useState<{[key: string]: string}>(
+    {},
+  );
 
   const {theme, toggleTheme} = useTheme();
 
@@ -48,7 +51,10 @@ const CurrencyConverter = () => {
       );
       const data = await response.json();
       const rates = data[0].rates.reduce(
-        (acc: Record<string, number>, rate: {code: string; mid: number}) => {
+        (
+          acc: Record<string, number>,
+          rate: {code: string; mid: number; currency: string},
+        ) => {
           acc[rate.code] = rate.mid;
           return acc;
         },
@@ -56,6 +62,19 @@ const CurrencyConverter = () => {
       );
       rates['PLN'] = 1;
       setExchangeRates(rates);
+
+      const names = data[0].rates.reduce(
+        (
+          acc: Record<string, string>,
+          rate: {code: string; currency: string},
+        ) => {
+          acc[rate.code] = rate.currency;
+          return acc;
+        },
+        {},
+      );
+      names['PLN'] = 'Polski złoty';
+      setCurrencyNames(names);
     } catch (error) {
       console.error('Błąd podczas pobierania kursów walut:', error);
     }
@@ -65,7 +84,14 @@ const CurrencyConverter = () => {
     if (fromCurrency && toCurrency) {
       const fromRate = exchangeRates[fromCurrency];
       const toRate = exchangeRates[toCurrency];
-      const rate = toRate / fromRate;
+      let rate;
+      if (fromCurrency === 'PLN') {
+        rate = 1 / toRate;
+      } else if (toCurrency === 'PLN') {
+        rate = fromRate;
+      } else {
+        rate = fromRate / toRate;
+      }
       setExchangeRate(`1 ${fromCurrency} = ${rate.toFixed(4)} ${toCurrency}`);
     }
   };
@@ -74,8 +100,16 @@ const CurrencyConverter = () => {
     if (amount && fromCurrency && toCurrency) {
       const fromRate = exchangeRates[fromCurrency];
       const toRate = exchangeRates[toCurrency];
-      const convertedAmount = (parseFloat(amount) / fromRate) * toRate;
-      setResult(convertedAmount.toFixed(2));
+      let convertedAmount;
+      if (fromCurrency === 'PLN') {
+        convertedAmount = parseFloat(amount.replace(',', '.')) / toRate;
+      } else if (toCurrency === 'PLN') {
+        convertedAmount = parseFloat(amount.replace(',', '.')) * fromRate;
+      } else {
+        convertedAmount =
+          (parseFloat(amount.replace(',', '.')) * fromRate) / toRate;
+      }
+      setResult(convertedAmount.toFixed(2).replace('.', ','));
     } else {
       setResult('');
     }
@@ -100,7 +134,7 @@ const CurrencyConverter = () => {
           onPress={() => setShowFromCurrencyList(true)}>
           <Image
             source={{
-              uri: `https://flagcdn.com/w20/${fromCurrency.toLowerCase()}.png`,
+              uri: `https://raw.githubusercontent.com/transferwise/currency-flags/master/src/flags/${fromCurrency.toLowerCase()}.png`,
             }}
             style={styles.flagIcon}
           />
@@ -122,7 +156,7 @@ const CurrencyConverter = () => {
           onPress={() => setShowToCurrencyList(true)}>
           <Image
             source={{
-              uri: `https://flagcdn.com/w20/${toCurrency.toLowerCase()}.png`,
+              uri: `https://raw.githubusercontent.com/transferwise/currency-flags/master/src/flags/${toCurrency.toLowerCase()}.png`,
             }}
             style={styles.flagIcon}
           />
@@ -143,6 +177,11 @@ const CurrencyConverter = () => {
       />
       {showFromCurrencyList && (
         <View style={styles.currencyListContainer}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => setShowFromCurrencyList(false)}>
+            <Text style={styles.backButtonText}>←</Text>
+          </TouchableOpacity>
           <ScrollView style={styles.currencyList}>
             {Object.keys(exchangeRates).map(currency => (
               <TouchableOpacity
@@ -153,7 +192,12 @@ const CurrencyConverter = () => {
                   setShowFromCurrencyList(false);
                   updateExchangeRate();
                 }}>
-                <Text style={styles.currencyItemText}>{currency}</Text>
+                <View style={styles.currencyItemContent}>
+                  <Text style={styles.currencyCode}>{currency}</Text>
+                  <Text style={styles.currencyName}>
+                    {currencyNames[currency] || currency}
+                  </Text>
+                </View>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -161,6 +205,11 @@ const CurrencyConverter = () => {
       )}
       {showToCurrencyList && (
         <View style={styles.currencyListContainer}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => setShowToCurrencyList(false)}>
+            <Text style={styles.backButtonText}>←</Text>
+          </TouchableOpacity>
           <ScrollView style={styles.currencyList}>
             {Object.keys(exchangeRates).map(currency => (
               <TouchableOpacity
@@ -171,7 +220,10 @@ const CurrencyConverter = () => {
                   setShowToCurrencyList(false);
                   updateExchangeRate();
                 }}>
-                <Text style={styles.currencyItemText}>{currency}</Text>
+                <Text style={styles.currencyCode}>{currency}</Text>
+                <Text style={styles.currencyName}>
+                  {currencyNames[currency] || currency}
+                </Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -199,14 +251,14 @@ const getStyles = (theme: 'light' | 'dark') =>
       flexDirection: 'row',
       alignItems: 'center',
       marginBottom: 15,
-      backgroundColor: '#fff',
+      backgroundColor: theme === 'dark' ? '#333' : '#fff',
       borderRadius: 15,
       overflow: 'hidden',
     },
     input: {
       flex: 1,
       fontSize: 24,
-      color: '#888',
+      color: theme === 'dark' ? '#fff' : '#888',
       textAlign: 'right',
       paddingVertical: 15,
       paddingHorizontal: 20,
@@ -242,36 +294,43 @@ const getStyles = (theme: 'light' | 'dark') =>
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.5)',
+      backgroundColor: theme === 'dark' ? '#1c1c1e' : '#fff',
       justifyContent: 'center',
       alignItems: 'center',
     },
     currencyList: {
-      backgroundColor: theme === 'dark' ? '#1c1c1e' : '#fff',
-      borderRadius: 12,
-      padding: 10,
-      maxHeight: '80%',
-      width: '80%',
+      flex: 1,
+      padding: 20,
     },
     currencyItem: {
       paddingVertical: 15,
-      paddingHorizontal: 20,
       borderBottomWidth: 1,
-      borderBottomColor: theme === 'dark' ? '#2c2c2e' : '#e0e0e0',
+      borderBottomColor: theme === 'dark' ? '#444' : '#e0e0e0',
+      marginHorizontal: -20,
     },
     currencyItemText: {
       fontSize: 18,
       color: theme === 'dark' ? '#fff' : '#000',
     },
+    currencyCode: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: theme === 'dark' ? '#fff' : '#000',
+    },
+    currencyName: {
+      fontSize: 14,
+      color: theme === 'dark' ? '#aaa' : '#888',
+      marginTop: 5,
+    },
     exchangeRateContainer: {
       marginBottom: 15,
-      backgroundColor: '#e0e0e0',
+      backgroundColor: theme === 'dark' ? '#333' : '#e0e0e0',
       borderRadius: 15,
       overflow: 'hidden',
     },
     exchangeRateInput: {
       fontSize: 16,
-      color: '#000',
+      color: theme === 'dark' ? '#fff' : '#000',
       textAlign: 'left',
       paddingVertical: 15,
       paddingHorizontal: 20,
@@ -290,6 +349,20 @@ const getStyles = (theme: 'light' | 'dark') =>
       width: 20,
       height: 20,
       marginRight: 10,
+    },
+    backButton: {
+      position: 'absolute',
+      top: 20,
+      left: 20,
+      zIndex: 1,
+    },
+    backButtonText: {
+      fontSize: 30,
+      color: theme === 'dark' ? '#fff' : '#000',
+    },
+    currencyItemContent: {
+      flexDirection: 'column',
+      paddingHorizontal: 20,
     },
   });
 
